@@ -2,6 +2,68 @@ from unittest.mock import patch
 from requests_oauthlib import OAuth1Session
 from settings import settings
 
+class Model():
+	class Meta:
+		base_url = settings[ 'url' ]
+		url = ''
+
+	def __init__( self ):
+		self.oauth = OAuth1Session( settings[ 'CLIENT_KEY' ],
+			client_secret=settings[ 'CLIENT_SECRET' ],
+			resource_owner_key=settings[ 'OWNER_KEY' ],
+			resource_owner_secret=settings[ 'OWNER_SECRET' ] )
+	
+	def read( self, pk=None, url_params=None, query=None ):
+		url, is_array = self._build_url( pk, url_params )
+		response = self.oauth.get( url, params=query )
+		self._check_error( response )
+		json = response.json()
+		data = json[ 'data' ]
+		if is_array:
+			return [ self.__class__( **d ) for d in data ]
+		else:
+			return self.__class__( **data )
+
+	def create( self, url_params, query=None ):
+		url, is_array = self._build_url( url_params=url_params )
+		response = self.oauth.post( url, params=query )
+		self._check_error( response )
+		json = response.json()
+		data = json[ 'data' ]
+		return self.__class__( **data )
+
+	def update( self, url_params, query=None ):
+		url, is_array = self._build_url( url_params=url_params )
+		response = self.oauth.put( url, params=query )
+		self._check_error( response )
+		json = response.json()
+		data = json[ 'data' ]
+		return self.__class__( **data )
+
+	def delete( self, url_params, query=None ):
+		url, is_array = self._build_url( url_params=url_params )
+		response = self.oauth.delete( url, params=query )
+		self._check_error( response )
+		json = response.json()
+		data = json[ 'data' ]
+		return self.__class__( **data )
+	
+	def _build_url( self, pk=None, url_params=None ):
+		url = self.Meta.base_url + self.Meta.url
+		is_array = False
+		if not url_params:
+			url_params = {}
+		if not pk:
+			pk = ''
+			is_array = True
+		url_params[ 'pk' ] = pk
+		return url.format( **url_params ), is_array
+
+	def _check_error( self, response ):
+		if response.status_code != 200:
+			message = response.json()[ 'errors'][0][ 'message' ]
+			raise ValueError( message )
+
 class Manager_base():
 	class Meta:
 		debug_all_objects = None
@@ -11,10 +73,6 @@ class Manager_base():
 
 	def __init__( self ):
 
-		self.oauth = OAuth1Session( settings[ 'CLIENT_KEY' ],
-			client_secret=settings[ 'CLIENT_SECRET' ],
-			resource_owner_key=settings[ 'OWNER_KEY' ],
-			resource_owner_secret=settings[ 'OWNER_SECRET' ] )
 
 
 	def get_all( self, *argv, **kargs ):
