@@ -2,140 +2,122 @@ from unittest.mock import patch
 from requests_oauthlib import OAuth1Session
 from settings import settings
 
-class Manager_base():
+def set_property( klass, name, **kargs):
+	"""
+	"""
+	klass._properties[ name ] = kargs
+	default = kargs.get( 'default' )
+	is_read_only = kargs.get( 'read_only', False )
+	property_name = '_{name}'.format( name=name )
+	def getter( self ):
+		return getattr( self, property_name, default )
+	if is_read_only:
+		setattr( klass, name, property( getter ) )
+	else:
+		def setter( self, value ):
+			setattr( self, property_name, value ) 
+		setattr( klass, name, property( getter, setter ) )
+
+class Model():
 	class Meta:
-		debug_all_objects = None
-		debug_one_objects = None
-		model = None
-		url = settings[ 'url' ]
+		base_url = settings[ 'url' ]
+		url = ''
 
-	def __init__( self ):
+	_properties = {}
 
-		self.oauth = OAuth1Session( settings[ 'CLIENT_KEY' ],
-			client_secret=settings[ 'CLIENT_SECRET' ],
-			resource_owner_key=settings[ 'OWNER_KEY' ],
-			resource_owner_secret=settings[ 'OWNER_SECRET' ] )
+	_oauth = OAuth1Session( settings[ 'CLIENT_KEY' ],
+		client_secret=settings[ 'CLIENT_SECRET' ],
+		resource_owner_key=settings[ 'OWNER_KEY' ],
+		resource_owner_secret=settings[ 'OWNER_SECRET' ] )
 
+	def __init__( self, account=None, **kargs ):
+		self.account = account
+		self.from_response( kargs )
 
-	def get_all( self, *argv, **kargs ):
+	def _get_params( self ):
 		"""
-		Obtiene todas los datos de un objeto
-
-		Arguments
-		---------
-		argv: array
-			lista de eleimento qe se le concatenaran a la url
-
-		Returns
-		-------
-		array: lista de todos los objetos
+		Obtiene todos los parametros de la instancia
 		"""
-		url = self.Meta.url + '/'.join( argv )
-		response = self._do_request( url, self.Meta.debug_all_objects, query=kargs )
+		result = {}
+		for name in self._properties:
+			name_attr = '_{name}'.format( name=name )
+			val = getattr( self, name_attr, None )
 
-		data = response.json()[ 'data' ]
-		result = []
-		for d in data:
-			result.append( self.Meta.model( **d ) )
+			if val is None:
+				continue
+			result[ name ] = val
+
 		return result
 
-	def get( self, *argv ):
+	def from_response( self, data ):
 		"""
-		regresa una objeto
-
-		Arguments
-		---------
-		argv: array
-			lista de eleimento qe se le concatenaran a la url
-
-		Returns
-		-------
-		model: regresa el objeto que se definio en el Meta
+		asigna los parametros de un request a la instancia
 		"""
-		url = self.Meta.url + '/'.join( argv )
-		response = self._do_request( url, self.Meta.debug_one_objects )
-		data = response.json()[ 'data' ]
-		return self.Meta.model( **data )
+		for name in self._properties:
+			attr = '_{name}'.format( name=name )
+			value = data.get( name )
+			if value is None:
+				continue
+			setattr( self, attr, value )
+		return self
 
-	def create( self, *argv, **kargs):
+
+	@classmethod
+	def read( klass, account=None, id=None, query=None, url_params=None ):
 		"""
-		crea un objeto
-
-		Arguments
-		---------
-		argv: array
-			lista de eleimento qe se le concatenaran a la url
-		kargs: dict
-			diccionario de parametros para la funcion de creacion
-
-		Returns
-		-------
-		model: regresa el objeto que se definio en el Meta
+		Obtiene los datos del api regresa un array de objetos si se asigna el id
 		"""
-		url = self.Meta.url + '/'.join( argv )
-		response = self._do_request_post( url, self.Meta.debug_one_objects, query=kargs )
-		data = response.json()[ 'data' ]
-		return self.Meta.model( **data )
-
-	def update( self, *argv, **kargs):
-		"""
-		actualiza un objeto
-
-		Arguments
-		---------
-		argv: array
-			lista de eleimento qe se le concatenaran a la url
-		kargs: dict
-			diccionario de parametros para la funcion de actualizacion
-
-		Returns
-		-------
-		model: regresa el objeto que se definio en el Meta
-		"""
-		url = self.Meta.url + '/'.join( argv )
-		response = self._do_request_post( url, self.Meta.debug_one_objects, query=kargs )
-		data = response.json()[ 'data' ]
-		return self.Meta.model( **data )
-
-	def _do_request( self, url, debug_object, query=None ):
-		"""
-		genera el response usando la url y si esta en modo debug le regresa el mock
-		"""
-		if settings[ 'debug' ]:
-			with patch.object( self.oauth, 'get', return_value=debug_object):
-				response = self.oauth.get( url )
+		if url_params is None:
+			url_params = {}
+		if account is None:
+			url_params[ 'account_id' ] = ''
 		else:
-			response = self.oauth.get( url )
+			url_params[ 'account_id' ] = account.id
+		if id is None:
+			url_params[ 'id' ] = ''
+			is_array = False
+		else:
+			url_params[ 'id' ] = id
+			is_array = True
+		url = klass._build_url( url_params=url_params )
+		response = klass._oauth.get( url, params=query )
+		klass.check_error( response )
+		json = response.json()
+		data = json[ 'data' ]
+		if id is None:
+			return [ klass( account=account, **d ) for d in data ]
+		else:
+			return klass( account=account, **data )
+	
+	def save( self ):
+		query = self._get_params()
+		url_params = {}
+		url_params[ 'account_id' ] = self.account.id
+		if self.id is None:
+			url_params[ 'id' ] = ''
+			url = self._build_url( url_params=url_params )
+			response = self._oauth.post( url, params=query )
+		else:
+			url_params[ 'id' ] = self.id
+			url = self._build_url( url_params=url_params )
+			response = self.oauth.put( url, params=query )
+		self.check_error( response )
+		json = response.json()
+		json = json.get( 'data', json )
+		if isinstance( json, list ):
+			json = json[0]
+		self.from_response( json )
+
+	@classmethod
+	def _build_url( klass, url_params=None ):
+		url = klass.Meta.base_url + klass.Meta.url
+		if not url_params:
+			url_params = {}
+		return url.format( **url_params )
+
+	@staticmethod
+	def check_error( response ):
 		if response.status_code != 200:
 			message = response.json()[ 'errors'][0][ 'message' ]
 			raise ValueError( message )
-		return response
 
-	def _do_request_post( self, url, debug_object, query=None ):
-		"""
-		genera el response usando la url y si esta en modo debug le regresa el mock
-		"""
-		if settings[ 'debug' ]:
-			with patch.object( self.oauth, 'post', return_value=debug_object):
-				response = self.oauth.post( url, params=query )
-		else:
-			response = self.oauth.post( url, params=query )
-		if response.status_code != 200:
-			message = response.json()[ 'errors' ][0][ 'message' ]
-			raise ValueError( message )
-		return response
-
-	def _do_request_put( self, url, debug_object, query=None ):
-		"""
-		genera el response usando la url y si esta en modo debug le regresa el mock
-		"""
-		if settings[ 'debug' ]:
-			with patch.object( self.oauth, 'put', return_value=debug_object):
-				response = self.oauth.put( url, params=query )
-		else:
-			response = self.oauth.put( url, params=query )
-		if response.status_code != 200:
-			message = response.json()[ 'errors' ][0][ 'message' ]
-			raise ValueError( message )
-		return response
-		
