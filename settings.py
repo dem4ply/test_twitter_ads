@@ -4,7 +4,7 @@ settings = {
 	'OWNER_KEY': '',
 	'OWNER_SECRET': '',
 
-	'url': "https://ads-api-sandbox.twitter.com/0/",
+	'url': 'https://ads-api.twitter.com/0/',
 	
 	'debug': True,
 }
