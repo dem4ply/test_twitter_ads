@@ -1,28 +1,28 @@
-from base import Model
+from base import Model, set_property
 from .funding_instrument import Funding_instrument
 from .tweet import Tweet
 
 class Account( Model ):
-	class Meta:
-		url = 'account/{pk}'
+	_properties = {}
+	class Meta( Model.Meta ) :
+		url = 'account/{id}'
 
-	def __init__( self, **kargs ):
-		super().__init__()
+	def __init__( self, account, **kargs ):
+		super().__init__( self, **kargs )
 
-		self.name = kargs.get( 'name' )
-		self.timezone = kargs.get( 'timezone' )
-		self.pk = kargs.get( 'id' )
-		self.create_at = kargs.get( 'created_at' )
-		self.approval_status = kargs.get( 'approval_status' )
-		self.is_deleted = kargs.get( 'deleted' )
-
-	def read_funding_instrument( self, pk=None ):
-		instruments = Funding_instrument()
-		return instruments.read( self.pk, pk )
+	def read_funding_instrument( self, id=None ):
+		return Funding_instrument.read( account=self, id=id )
 
 	def create_tweet_promotion( self, text ):
 		tweets = Tweet( text=text )
 		return tweets.create( self.pk )
 
 	def __str__( self ):
-		return "pk: {}\nname: {}".format( self.pk, self.name )
+		return "id: {}\nname: {}".format( self.id, self.name )
+
+set_property( Account, 'approval_status' )
+set_property( Account, 'create_at' )
+set_property( Account, 'deleted' )
+set_property( Account, 'id' )
+set_property( Account, 'name' )
+set_property( Account, 'timezone' )

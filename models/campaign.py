@@ -1,71 +1,38 @@
-from base import Model
+from base import Model, set_property
 from .line import Line
 
 class Campaign( Model ):
-	class Meta:
-		url = 'account/{account_pk}/campaigns/{pk}'
-
-	def __init__( self, **kargs ):
-		super().__init__()
-		self.name = kargs.get( 'name' )
-		self.created_at = kargs.get( 'created_at' )
-		self.end_time = kargs.get( 'end_time' )
-		self.update_at = kargs.get( 'update_at' )
-		self.account_id = kargs.get( 'account_id' )
-		self.deleted = kargs.get( 'deleted' )
-		self.pk = kargs.get( 'id' )
-		self.pause = kargs.get( 'pause' )
-		self.currency = kargs.get( 'currency' )
-		self.total_budget_amount = kargs.get( 'total_budget_amount_local_micro' )
-		self.daily_budget_amount = kargs.get( 'daily_budget_amount_local_micro|' )
-		self.funding_instrument_id = kargs.get( 'funding_instrument_id' )
-		self.start_time = kargs.get( 'start_time' )
+	_properties = {}
+	class Meta( Model.Meta ):
+		url = 'account/{account_id}/campaigns/{id}'
 
 	def init_line( self, bid_amount, product_type, placements ):
-		line = Line()
-		query = {
-			'campaign_id': self.pk,
-			'bid_amount_local_micro': bid_amount,
-			'product_type': product_type,
-			'placements': placements,
-			'paused': True,
-		}
-		url_params = {
-			'account_id': self.account_id
-		}
-		return line.create( url_params=url_params, query=query )
+		line = Line( account=self.account )
+		line.campaign_id = self.id
+		line.bid_amount_local_micro= bid_amount
+		line.product_type = product_type
+		line.placements = placements
+		line.paused = True
+
+		line.save()
+
+		return line
+
+
 
 	def __str__( self ):
-		return "pk: {}\nname: {}".format( self.pk, self.name)
+		return "id: {}\nname: {}".format( self.id, self.name)
 
-	def read( self, account=None, pk=None, url_params=None, query=None ):
-		if not url_params:
-			url_params = {}
-		if not account:
-			if not self.account_id:
-				raise ValueError( "El objeto no tiene definido el account_id" )
-			else:
-				account_id = self.account_id
-		else:
-			account_id = account.pk
-		url_params[ 'account_id' ] = account_id
-		return super().read( pk, url_params, query )
-
-	def create( self, funding_instrument,
-		name, start_time, total_budget_amount,
-		daily_budget_amount, url_params=None, query=None ):
-
-		if not url_params:
-			url_params = {}
-		url_params[ 'account_id' ] = account_id
-		if not query:
-			query = {
-					'account_id': funding_instrument.account_id,
-					'start_time': start_time,
-					'funding_instrument_id': funding_instrument.pk,
-					'name': name,
-					'total_budget_amount_local_micro': total_budget_amount,
-					'daily_budget_amount_local_micro': daily_budget_amount,
-					'pause': True,
-			}
-		return super().create( url_params=url_params, query=query )
+set_property( Campaign, 'name' )
+set_property( Campaign, 'created_at' )
+set_property( Campaign, 'end_time' )
+set_property( Campaign, 'id' )
+set_property( Campaign, 'update_at' )
+set_property( Campaign, 'account_id' )
+set_property( Campaign, 'deleted' )
+set_property( Campaign, 'paused' )
+set_property( Campaign, 'currency' )
+set_property( Campaign, 'total_budget_amount_local_micro' )
+set_property( Campaign, 'daily_budget_amount_local_micro' )
+set_property( Campaign, 'funding_instrument_id' )
+set_property( Campaign, 'start_time' )

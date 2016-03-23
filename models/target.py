@@ -1,19 +1,9 @@
-from base import Model
+from base import Model, set_property
 
 class Target( Model ):
-	class Meta:
-		url = 'account/{account_pk}/targeting_criteria/{pk}'
-
-	def __init__( self, **kargs ):
-		self.name = kargs.get( 'name' )
-		self.created_at = kargs.get( 'created_at' )
-		self.update_at = kargs.get( 'update_at' )
-		self.account_id = kargs.get( 'account_id' )
-		self.pk = kargs.get( 'id' )
-		self.deleted = kargs.get( 'deleted' )
-		self.targeting_value = kargs.get( 'targeting_value' )
-		self.line_item_id = kargs.get( 'line_item_id' )
-		self.targeting_type = kargs.get( 'targeting_type' )
+	_property = {}
+	class Meta( Model.Meta ):
+		url = 'account/{account_id}/targeting_criteria/{id}'
 
 	def create( self, line, target ):
 		query = {
@@ -26,33 +16,51 @@ class Target( Model ):
 		}
 		super().create( query=query )
 
-class Target_phrase():
-	def __init__( self, **kargs ):
-		self.kind = kargs.get( 'kind', 'PHRASE_KEYWORD' )
-		self.value = kargs.get( 'value' )
+set_property( Target, 'account_id' )
+set_property( Target, 'created_at' )
+set_property( Target, 'deleted' )
+set_property( Target, 'id' )
+set_property( Target, 'line_item_id' )
+set_property( Target, 'name' )
+set_property( Target, 'targeting_type' )
+set_property( Target, 'targeting_value' )
+set_property( Target, 'update_at' )
+
+class Target_phrase( Model ):
+	def __init__( self, value, **kargs ):
+		super().__init__( **kargs )
+		if self.targeting_type is None:
+			self.targeting_type = 'PHRASE_KEYWORD'
+		if self.targeting_value is None:
+			self.targeting_value = value
+	pass
+
+set_property( Target_phrase, 'targeting_value' )
+set_property( Target_phrase, 'targeting_type' )
 
 class Target_location( Model ):
-	class Meta:
+	_property = {}
+	class Meta( Model.Meta ):
 		url = 'targeting_criteria/locations/'
 
-	def __init__( self, **kargs ):
-		self.name = kargs.get( 'name' )
-		self.kind = kargs.get( 'targeting_type' )
-		self.value = kargs.get( 'targeting_value' )
+	@classmethod
+	def get_city( klass, q ):
+		return klass.read( 'CITY', q )
 
-	def get_city( self, q ):
-		return self.read( 'CITY', q )
+	@classmethod
+	def get_country( klass, q ):
+		return klass.read( 'COUNTRY', q )
 
-	def get_country( self, q ):
-		return self.read( 'COUNTRY', q )
+	@classmethod
+	def get_region( klass, q ):
+		return klass.read( 'REGION', q )
 
-	def get_region( self, q ):
-		return self.read( 'REGION', q )
+	@classmethod
+	def get_postal_code( klass, q ):
+		return klass.read( 'POSTAL_CODE', q )
 
-	def get_postal_code( self, q ):
-		return self.read( 'POSTAL_CODE', q )
-
-	def read( self, kind, q ):
+	@classmethod
+	def read( klass, kind, q ):
 		query = {
 			'location_type': kind,
 			'q': q,
@@ -60,3 +68,10 @@ class Target_location( Model ):
 
 		return super().read( query=query )
 
+	def __str__( self ):
+		return "name: {}\nvalue: {}\ntype: {}".format( self.name,
+			self.targeting_value, self.targeting_type )
+
+set_property( Target_location, 'name' )
+set_property( Target_location, 'targeting_type' )
+set_property( Target_location, 'targeting_value' )

@@ -1,25 +1,19 @@
-from base import Model
-from target import Target
+from base import Model, set_property
+from .target import Target
 
 class Tweet( Model ):
-	class Meta:
-		url = 'account/{account_pk}/tweet/{pk}'
+	_property = {}
+	class Meta( Model.Meta ):
+		url = 'account/{account_id}/tweet/{id}'
 
-	def __init__( self, **kargs ):
-		super().__init__()
-		self.pk = kargs.get( 'id' )
-		self.text = kargs.get( 'text' )
+set_property( Tweet, 'id' )
+set_property( Tweet, 'status' )
 
-	def create( self, account_id, text=None ):
-		if not text:
-			if not self.text:
-				raise ValueError( "No se mando el texto del tweet" )
-			text = self.text
+class Tweet_promoted( Model ):
+	_property = {}
+	class Meta( Model.Meta ):
+		url = 'account/{account_id}/promoted_tweets/{id}'
 
-		url_params = {
-			'account_id': account_id,
-		}
-		query = {
-			'status': text,
-		}
-		return super().create( url_params=url_params, query=query )
+set_property( Tweet_promoted, 'id' )
+set_property( Tweet_promoted, 'line_item_id' )
+set_property( Tweet_promoted, 'tweet_ids' )
