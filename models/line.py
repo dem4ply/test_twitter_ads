@@ -3,6 +3,7 @@ from .target import Target
 from .tweet import Tweet_promoted
 
 class Line( Model ):
+	_properties = {}
 	class Meta( Model.Meta ):
 		url = 'account/{account_id}/line_items/{id}'
 

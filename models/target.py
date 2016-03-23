@@ -27,6 +27,7 @@ set_property( Target, 'targeting_value' )
 set_property( Target, 'update_at' )
 
 class Target_phrase( Model ):
+	_properties = {}
 	def __init__( self, value, **kargs ):
 		super().__init__( **kargs )
 		if self.targeting_type is None:
